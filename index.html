@@ -1,0 +1,224 @@
+<!doctype html>
+<html id="html">
+	<head>
+		<title>Volume Meter</title>
+	</head>
+	<body>
+        <p id="vt">loading...</p>
+        <div class="slidecontainer">
+            <input type="range" min="1" max="300" class="slider" id="myRange">
+            <p>Max: <span id="demo"></span></p>
+            <b>Points: <span id="HP"></span></b>
+          </div>
+        <style>
+
+            /*  Slider */
+            .slidecontainer {
+  width: 100%;
+}
+
+.slider {
+  -webkit-appearance: none;
+  width: 15%;
+  height: 5px;
+  border-radius: 5px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.slider:hover {
+  opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #000000;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 100%;
+  background: #000000;
+  cursor: pointer;
+}
+    canvas {
+    
+    background: linear-gradient(to left, #0000ff 0%, #ff0000 100%)
+    
+}
+
+html {
+    background-color: aquamarine;
+}
+        </style>
+		<canvas id="meter" width="500" height="50"></canvas>
+		<script>
+            var points = 10
+            document.getElementById("HP").innerHTML = points
+			var audioContext = null;
+var meter = null;
+var canvasContext = null;
+var WIDTH=500;
+var HEIGHT=50;
+var rafID = null;
+
+var slider = document.getElementById("myRange");
+var output = document.getElementById("demo");
+output.innerHTML = slider.value;
+
+slider.oninput = function() {
+  output.innerHTML = this.value;
+}
+
+window.onload = function() {
+
+    
+	canvasContext = document.getElementById( "meter" ).getContext("2d");
+	
+    // monkeypatch Web Audio
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+	
+    
+    audioContext = new AudioContext();
+
+    
+    try {
+        // monkeypatch getUserMedia
+        navigator.getUserMedia = 
+        	navigator.getUserMedia ||
+        	navigator.webkitGetUserMedia ||
+        	navigator.mozGetUserMedia;
+
+        
+        navigator.getUserMedia(
+        {
+            "audio": {
+                "mandatory": {
+                    "googEchoCancellation": "false",
+                    "googAutoGainControl": "false",
+                    "googNoiseSuppression": "false",
+                    "googHighpassFilter": "false"
+                },
+                "optional": []
+            },
+        }, gotStream, didntGetStream);
+    } catch (e) {
+        alert('getUserMedia threw exception :' + e);
+    }
+
+}
+
+
+function didntGetStream() {
+    alert('Volume Meters require the mic on your computer.');
+}
+
+var mediaStreamSource = null;
+
+function gotStream(stream) {
+    // Create an AudioNode from the stream.
+    mediaStreamSource = audioContext.createMediaStreamSource(stream);
+
+    // Create a new volume meter and connect it.
+    meter = createAudioMeter(audioContext);
+    mediaStreamSource.connect(meter);
+
+    // kick off the visual updating
+    drawLoop();
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function drawLoop( time ) {
+    
+    for(i=0; i<10000000; i++) {
+        test = 1
+    }
+    
+    if (meter.volume*1000 > slider.value){
+    meter.volume = 0    
+    //alert("aaaaah!")
+    sleep(100).then(() => {document.getElementById("html").style.backgroundColor = "aquamarine";})
+    document.getElementById("html").style.backgroundColor = "rgb(255, 377, 177)";
+    points --
+    meter.volume = 0
+    document.getElementById("HP").innerHTML = points
+}
+    document.getElementById ("vt").innerHTML = Math.round(meter.volume*1000);
+    // clear the background
+    canvasContext.clearRect(0,0,WIDTH,HEIGHT);
+
+    if (meter.checkClipping())
+        canvasContext.fillStyle = "#0000ff";
+    else
+        canvasContext.fillStyle = "#0000ff";
+
+    canvasContext.fillRect(0, 0, meter.volume*WIDTH*1.4, HEIGHT);
+
+    rafID = window.requestAnimationFrame( drawLoop );
+}
+
+function createAudioMeter(audioContext,clipLevel,averaging,clipLag) {
+	var processor = audioContext.createScriptProcessor(512);
+	processor.onaudioprocess = volumeAudioProcess;
+	processor.clipping = false;
+	processor.lastClip = 0;
+	processor.volume = 0;
+	processor.clipLevel = clipLevel || 0.98;
+	processor.averaging = averaging || 0.95;
+	processor.clipLag = clipLag || 750;
+
+	processor.connect(audioContext.destination);
+
+	processor.checkClipping =
+		function(){
+			if (!this.clipping)
+				return false;
+			if ((this.lastClip + this.clipLag) < window.performance.now())
+				this.clipping = false;
+			return this.clipping;
+		};
+
+	processor.shutdown =
+		function(){
+			this.disconnect();
+			this.onaudioprocess = null;
+		};
+
+	return processor;
+}
+
+function volumeAudioProcess( event ) {
+	var buf = event.inputBuffer.getChannelData(0);
+    var bufLength = buf.length;
+	var sum = 0;
+    var x;
+
+    for (var i=0; i<bufLength; i++) {
+    	x = buf[i];
+    	if (Math.abs(x)>=this.clipLevel) {
+    		this.clipping = true;
+    		this.lastClip = window.performance.now();
+    	}
+    	sum += x * x;
+    }
+
+    var rms =  Math.sqrt(sum / bufLength);
+
+    this.volume = Math.max(rms, this.volume*this.averaging);
+}
+
+		</script>
+	</body>
+</html>
