@@ -62,10 +62,10 @@ html {
         </style>
 		<canvas id="meter" width="500" height="50"></canvas>
 		<script>
-            var points = 50
+            var points = 15
             document.getElementById("HP").innerHTML = points
-			var audioContext = null;
-var meter = null;
+			var audioContext = new AudioContext();
+var meter = createAudioMeter(audioContext);
 var canvasContext = null;
 var WIDTH=500;
 var HEIGHT=50;
@@ -133,22 +133,71 @@ function gotStream(stream) {
     mediaStreamSource.connect(meter);
 
     // kick off the visual updating
-    drawLoop();
+    //drawLoop();
 }
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function drawLoop( time ) {
-    
-    for(i=0; i<10000000; i++) {
-        test = 1
-    }
-    
+window.addEventListener("load", doLoop)
+/*window.addEventListener("load", newPoints)
+function newPoints() {
+    window.setInterval(function () {
+        console.log(meter.volume*1000 <= slider.value)
+        if (meter.volume*1000 <= slider.value){
+            points += 20
+            document.getElementById("HP").innerHTML = points
+        }        
+    }, 30000) // Set to 30000 for 30s
+}*/
+
+var pts = 0
+let HP = document.getElementById("HP").innerHTML
+let t = 20000
+var ticky = 0
+function doLoop() {
+    window.setInterval(function () {
+        pts ++
+        if (meter.volume*1000 > slider.value){
+            pts = 0
+            //console.log("!")
+            meter.volume = 0    
+            //sleep(100).then(() => {document.getElementById("html").style.backgroundColor = "aquamarine";})
+            document.getElementById("html").style.backgroundColor = "rgb(255, 377, 177)";
+            ticky = 300
+            points --
+            meter.volume = 0
+            document.getElementById("HP").innerHTML = points
+        } else {
+            //console.log(pts/t == Math.round(pts/t))
+            if (ticky > 0) {
+                ticky --
+            } else {
+                document.getElementById("html").style.backgroundColor = "aquamarine"
+            }
+            if (pts/t == Math.round(pts/t)) {
+                points += 20
+                document.getElementById("HP").innerHTML = points
+            }
+        }
+        document.getElementById ("vt").innerHTML = Math.round(meter.volume*1000);
+        // clear the background
+        canvasContext.clearRect(0,0,WIDTH,HEIGHT);
+
+        if (meter.checkClipping())
+            canvasContext.fillStyle = "#0000ff";
+        else
+            canvasContext.fillStyle = "#0000ff";
+
+        canvasContext.fillRect(0, 0, meter.volume*WIDTH*1.4, HEIGHT);
+
+        rafID = window.requestAnimationFrame( doLoop );
+    },1)
+}
+/*function drawLoop( time ) {
     if (meter.volume*1000 > slider.value){
     meter.volume = 0    
-    //alert("aaaaah!")
     sleep(100).then(() => {document.getElementById("html").style.backgroundColor = "aquamarine";})
     document.getElementById("html").style.backgroundColor = "rgb(255, 377, 177)";
     points --
@@ -167,7 +216,7 @@ function drawLoop( time ) {
     canvasContext.fillRect(0, 0, meter.volume*WIDTH*1.4, HEIGHT);
 
     rafID = window.requestAnimationFrame( drawLoop );
-}
+}*/
 
 function createAudioMeter(audioContext,clipLevel,averaging,clipLag) {
 	var processor = audioContext.createScriptProcessor(512);
